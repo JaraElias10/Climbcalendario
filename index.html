@@ -1172,8 +1172,11 @@ window.deletePub = deletePub;
 window.closeModal = closeModal;
 window.filterTable = filterTable;
 
-initUserButtons();
-uploadInitialDataIfEmpty().then(() => initFirebase());
+// Esperar que el DOM esté completamente cargado
+document.addEventListener('DOMContentLoaded', () => {
+  initUserButtons();
+  uploadInitialDataIfEmpty().then(() => initFirebase());
+});
 </script>
 </body>
 </html>
