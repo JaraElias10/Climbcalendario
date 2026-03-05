@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendario de Publicaciones</title>
+<!-- Firebase compat SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -390,7 +393,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script type="module">
+<script>
 // ==================== DATA ====================
 const USERS = {
   admin:  { pass:'admin',  role:'Administrador', color:'#7c6af7', pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario'] },
@@ -537,7 +540,6 @@ function selectUser(btn) {
   document.querySelectorAll('.user-btn').forEach(x => x.classList.remove('active'));
   btn.classList.add('active');
 }
-window.selectUser = selectUser;
 
 function doLogin() {
   const selected = document.querySelector('.user-btn.active');
@@ -980,8 +982,6 @@ function showToast(msg, err=false) {
 }
 
 // ==================== FIREBASE ====================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAp2hM3377JzJzUjdoMHP4snNYKd68Qopw",
@@ -992,8 +992,8 @@ const firebaseConfig = {
   appId: "1:479216495823:web:7f27dd40d5ffb499cadbba"
 };
 
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+const fbApp = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
 const SECTIONS = ['pub','coop','ccu','fest'];
 
@@ -1008,8 +1008,8 @@ function setOnlineStatus(online) {
 // Cargar datos iniciales desde Firestore y escuchar cambios en tiempo real
 function initFirebase() {
   SECTIONS.forEach(sec => {
-    const col = collection(db, sec);
-    onSnapshot(col, snapshot => {
+    const col = db.collection(sec);
+    col.onSnapshot(snapshot => {
       DATA[sec] = [];
       snapshot.forEach(d => {
         DATA[sec].push({ _id: d.id, ...d.data() });
@@ -1032,13 +1032,13 @@ function initFirebase() {
 // Guardar en Firestore
 async function saveToFirestore(key, record, existingId) {
   const id = existingId || (Date.now().toString() + Math.random().toString(36).slice(2,6));
-  await setDoc(doc(db, key, id), record);
+  await db.collection(key).doc(id).set(record);
   return id;
 }
 
 // Eliminar de Firestore
 async function deleteFromFirestore(key, id) {
-  await deleteDoc(doc(db, key, id));
+  await db.collection(key).doc(id).delete();
 }
 
 // Subir datos iniciales si Firestore está vacío
@@ -1109,11 +1109,11 @@ async function uploadInitialDataIfEmpty() {
   };
 
   for (const sec of SECTIONS) {
-    const snap = await getDocs(collection(db, sec));
+    const snap = await db.collection(sec).get();
     if (snap.empty) {
       for (const rec of INITIAL[sec]) {
         const id = Date.now().toString() + Math.random().toString(36).slice(2,6);
-        await setDoc(doc(db, sec, id), rec);
+        await db.collection(sec).doc(id).set(rec);
         await new Promise(r => setTimeout(r, 30));
       }
       console.log(`Datos iniciales subidos: ${sec}`);
@@ -1166,17 +1166,8 @@ async function deletePub(key, idx) {
 }
 
 // ==================== INIT ====================
-// Exponer funciones al scope global (necesario con type="module")
-window.doLogin = doLogin;
-window.logout = logout;
-window.openAddModal = openAddModal;
-window.openEditModal = openEditModal;
-window.savePub = savePub;
-window.deletePub = deletePub;
-window.closeModal = closeModal;
-window.filterTable = filterTable;
-
-// Esperar que el DOM esté completamente cargado
+// Funciones en scope global
+// Iniciar app
 document.addEventListener('DOMContentLoaded', () => {
   initUserButtons();
   uploadInitialDataIfEmpty().then(() => initFirebase());
