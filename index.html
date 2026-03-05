@@ -339,6 +339,13 @@ const ESTADO_COLORS={'Publicado':'#56c596','Pendiente':'#f06b6b','Diseñado':'#6
 const COMPANY_PALETTE=['#7c6af7','#f7916a','#4fd1c5','#f472b6','#56c596','#63a4f5','#f5c842','#e879f9','#fb923c'];
 
 let currentUser=null,currentPage='dashboard',editKey=null;
+// Guardar estado de filtros para preservarlos al actualizar
+const FILTER_STATE={
+  pub:{q:'',est:'',enc:'',dia:''},
+  coop:{q:'',est:'',enc:'',dia:''},
+  ccu:{q:'',est:'',enc:'',dia:''},
+  fest:{q:'',est:'',enc:'',dia:''},
+};
 
 const NAV_CONFIG=[
   {id:'dashboard',icon:'🏠',label:'Dashboard'},
@@ -525,6 +532,15 @@ function renderTable(key,pageId,title,icon){
     </div>
     <div class="table-wrap" id="table-${key}">${buildTableHTML(key,DATA[key])}</div>
   `;
+  // Restaurar filtros guardados
+  const fs=FILTER_STATE[key];
+  if(fs){
+    const sq=document.getElementById('search-'+key);if(sq&&fs.q)sq.value=fs.q;
+    const se=document.getElementById('filter-est-'+key);if(se&&fs.est)se.value=fs.est;
+    const sn=document.getElementById('filter-enc-'+key);if(sn&&fs.enc)sn.value=fs.enc;
+    const sd=document.getElementById('filter-dia-'+key);if(sd&&fs.dia)sd.value=fs.dia;
+    if(fs.q||fs.est||fs.enc||fs.dia)filterTable(key,pageId);
+  }
 }
 
 function filterTable(key,pageId){
@@ -532,6 +548,7 @@ function filterTable(key,pageId){
   const est=(document.getElementById('filter-est-'+key)||{}).value||'';
   const enc=(document.getElementById('filter-enc-'+key)||{}).value||'';
   const dia=(document.getElementById('filter-dia-'+key)||{}).value||'';
+  if(FILTER_STATE[key])FILTER_STATE[key]={q,est,enc,dia};
   const filtered=DATA[key].filter(r=>{
     return (!q||(r.empresa+r.contenido+r.comentario).toLowerCase().includes(q))&&
            (!est||r.estado===est)&&(!enc||r.encargado===enc)&&(!dia||r.dia===dia);
