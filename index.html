@@ -295,7 +295,8 @@
       <p style="margin-top:-4px;">Gestión de publicaciones</p>
     </div>
     <div class="nav" id="nav-items"></div>
-    <div class="sidebar-user">
+    <div style="padding:6px 16px;border-top:1px solid var(--border);"><span id="online-status" style="font-size:11px;color:var(--success);">🟢 Conectando...</span></div>
+  <div class="sidebar-user">
       <div class="avatar" id="user-avatar"></div>
       <div class="sidebar-user-info">
         <strong id="user-name-display"></strong>
@@ -383,7 +384,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
 // ==================== DATA ====================
 const USERS = {
   admin:  { pass:'admin',  role:'Administrador', color:'#7c6af7', pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario'] },
@@ -899,8 +900,205 @@ function showToast(msg, err=false) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ==================== FIREBASE ====================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAp2hM3377JzJzUjdoMHP4snNYKd68Qopw",
+  authDomain: "publicaciones-2577c.firebaseapp.com",
+  projectId: "publicaciones-2577c",
+  storageBucket: "publicaciones-2577c.firebasestorage.app",
+  messagingSenderId: "479216495823",
+  appId: "1:479216495823:web:7f27dd40d5ffb499cadbba"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+const SECTIONS = ['pub','coop','ccu','fest'];
+
+// Indicador de conexión
+function setOnlineStatus(online) {
+  const el = document.getElementById('online-status');
+  if (!el) return;
+  el.textContent = online ? '🟢 En línea' : '🔴 Sin conexión';
+  el.style.color = online ? 'var(--success)' : 'var(--danger)';
+}
+
+// Cargar datos iniciales desde Firestore y escuchar cambios en tiempo real
+function initFirebase() {
+  SECTIONS.forEach(sec => {
+    const col = collection(db, sec);
+    onSnapshot(col, snapshot => {
+      DATA[sec] = [];
+      snapshot.forEach(d => {
+        DATA[sec].push({ _id: d.id, ...d.data() });
+      });
+      setOnlineStatus(true);
+      // Si el usuario ya está logueado y está viendo esta sección, refrescar
+      if (currentUser) {
+        const pageMap = { pub:'publicaciones', coop:'cooperativas', ccu:'ccu', fest:'festivos' };
+        if (currentPage === pageMap[sec] || currentPage === 'dashboard') {
+          goTo(currentPage);
+        }
+      }
+    }, err => {
+      setOnlineStatus(false);
+      console.error('Firebase error:', err);
+    });
+  });
+}
+
+// Guardar en Firestore
+async function saveToFirestore(key, record, existingId) {
+  const id = existingId || (Date.now().toString() + Math.random().toString(36).slice(2,6));
+  await setDoc(doc(db, key, id), record);
+  return id;
+}
+
+// Eliminar de Firestore
+async function deleteFromFirestore(key, id) {
+  await deleteDoc(doc(db, key, id));
+}
+
+// Subir datos iniciales si Firestore está vacío
+async function uploadInitialDataIfEmpty() {
+  const INITIAL = {
+    pub: [
+      {empresa:'YUMI', dia:'Martes', contenido:'Fotos', estado:'Esperando aprobación', encargado:'Kevin', comentario:''},
+      {empresa:'YUMI', dia:'Viernes', contenido:'', estado:'Pendiente', encargado:'Elias', comentario:''},
+      {empresa:'ph servicios', dia:'Viernes', contenido:'Esperar que pase info', estado:'Pendiente', encargado:'Kevin', comentario:''},
+      {empresa:'Saldiva arq', dia:'Miercoles', contenido:'Fotos', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Saldiva arq', dia:'Jueves', contenido:'', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Adr seguros', dia:'Jueves', contenido:'', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'SELENT', dia:'Martes', contenido:'la hora de tereré', estado:'Publicado', encargado:'Jose', comentario:''},
+      {empresa:'SELENT', dia:'Jueves', contenido:'ANIS', estado:'Diseñado', encargado:'Jose', comentario:''},
+      {empresa:'SELENT', dia:'sabado', contenido:'', estado:'Pendiente', encargado:'Jose', comentario:''},
+      {empresa:'Ezefram', dia:'Miercoles', contenido:'Invente roman', estado:'Diseñando', encargado:'Kevin', comentario:''},
+      {empresa:'Ezefram', dia:'Viernes', contenido:'', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Bonus', dia:'Martes', contenido:'promo de kaiser', estado:'Publicado', encargado:'Jose', comentario:''},
+      {empresa:'Bonus', dia:'Viernes', contenido:'video', estado:'Pendiente', encargado:'Elias', comentario:''},
+      {empresa:'ARquitectura PH', dia:'', contenido:'video mañana', estado:'Pendiente', encargado:'Elias', comentario:''},
+      {empresa:'Caballero', dia:'Jueves', contenido:'zona de seguridad fronteriza', estado:'Pendiente', encargado:'Kevin', comentario:''},
+      {empresa:'Ferreteria el sol', dia:'Viernes', contenido:'Preguntar productos', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'agrisur', dia:'Viernes', contenido:'protetivo agrícola', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Climb', dia:'Miercoles', contenido:'Numeros', estado:'Publicado', encargado:'Kevin', comentario:''},
+      {empresa:'Credimar', dia:'Martes', contenido:'credimar matriz/ajustar', estado:'Publicado', encargado:'Kevin', comentario:''},
+      {empresa:'Tu Farma', dia:'Miercoles', contenido:'productos que pasó', estado:'Publicado', encargado:'Kevin', comentario:''},
+      {empresa:'Patos', dia:'Martes', contenido:'cumpleaños', estado:'Publicado', encargado:'Kevin', comentario:''},
+      {empresa:'Patos', dia:'Miercoles', contenido:'LOGO local 1 y 2', estado:'Diseñado', encargado:'Elias', comentario:''},
+      {empresa:'publisport', dia:'sabado', contenido:'FOTOS DE CHICAS', estado:'Diseñando', encargado:'Elias', comentario:''},
+      {empresa:'Self made', dia:'Viernes', contenido:'', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'TodoPintura', dia:'Jueves', contenido:'esperar que pase productos', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'San Abel', dia:'Martes', contenido:'acompañante universal', estado:'Publicado', encargado:'Kevin', comentario:''},
+    ],
+    coop: [
+      {empresa:'María Auxiliadora', dia:'Martes', contenido:'ecopstop', estado:'Publicado', encargado:'Jose', comentario:''},
+      {empresa:'María Auxiliadora', dia:'Jueves', contenido:'Reserva salón de eventos', estado:'Diseñando', encargado:'Jose', comentario:''},
+      {empresa:'Santa Rita', dia:'Lunes', contenido:'Colageno', estado:'Modificar', encargado:'Jose', comentario:''},
+      {empresa:'Miranda', dia:'Lunes', contenido:'Videos', estado:'Publicado', encargado:'Elias', comentario:''},
+      {empresa:'Capitán Meza', dia:'Lunes', contenido:'invente', estado:'Programado', encargado:'Jose', comentario:''},
+      {empresa:'Yatytay', dia:'Miercoles', contenido:'Aceites', estado:'Publicado', encargado:'Jose', comentario:''},
+      {empresa:'Edelira', dia:'Miercoles', contenido:'calidad farma (insumos)', estado:'Diseñado', encargado:'Jose', comentario:'mandar'},
+      {empresa:'Santa Inés', dia:'Miercoles', contenido:'', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'COOP JUNTAS', dia:'', contenido:'Aniversario ccu', estado:'Pendiente', encargado:'', comentario:''},
+    ],
+    ccu: [
+      {empresa:'PETROBRAS', dia:'Martes', contenido:'', estado:'Pendiente', encargado:'', comentario:'NO USAR COLOR AZUL'},
+      {empresa:'PETROBRAS', dia:'Jueves', contenido:'Gas', estado:'Publicado', encargado:'Jose', comentario:''},
+      {empresa:'PETROBRAS', dia:'Viernes', contenido:'Gas historia', estado:'Programado', encargado:'', comentario:''},
+      {empresa:'PETROBRAS', dia:'sabado', contenido:'Aniversario', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'ECOP', dia:'Martes', contenido:'Nadaempa', estado:'Publicado', encargado:'Jose', comentario:''},
+      {empresa:'ECOP', dia:'Jueves', contenido:'invente', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'ECOP', dia:'sabado', contenido:'dia de la dama', estado:'Pendiente', encargado:'', comentario:''},
+    ],
+    fest: [
+      {empresa:'María Auxiliadora', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Santa Rita', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Miranda', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Capitán Meza', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Yatytay', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Edelira', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'PetroBras', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Adr seguros', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'Kevin', comentario:''},
+      {empresa:'SELENT', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'', comentario:''},
+      {empresa:'Credimar', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'Kevin', comentario:''},
+      {empresa:'Tu Farma', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'Kevin', comentario:''},
+      {empresa:'Patos', dia:'Viernes', contenido:'dia de la mujer', estado:'Pendiente', encargado:'Kevin', comentario:''},
+    ]
+  };
+
+  for (const sec of SECTIONS) {
+    const snap = await getDocs(collection(db, sec));
+    if (snap.empty) {
+      for (const rec of INITIAL[sec]) {
+        const id = Date.now().toString() + Math.random().toString(36).slice(2,6);
+        await setDoc(doc(db, sec, id), rec);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      console.log(`Datos iniciales subidos: ${sec}`);
+    }
+  }
+}
+
+// ==================== OVERRIDE savePub & deletePub con Firebase ====================
+async function savePub() {
+  const empresa = document.getElementById('pub-empresa').value.trim();
+  if (!empresa) { showToast('Ingresa el nombre de la empresa', true); return; }
+  const record = {
+    empresa,
+    dia: document.getElementById('pub-dia').value,
+    contenido: document.getElementById('pub-contenido').value,
+    estado: document.getElementById('pub-estado').value,
+    encargado: document.getElementById('pub-encargado').value,
+    comentario: document.getElementById('pub-comentario').value,
+  };
+  const key = document.getElementById('pub-seccion').value;
+  const idxStr = document.getElementById('pub-edit-idx').value;
+  
+  showToast('Guardando...⏳');
+  try {
+    if (idxStr !== '') {
+      const existingId = DATA[editKey||key][parseInt(idxStr)]?._id;
+      await saveToFirestore(editKey||key, record, existingId);
+      showToast('Publicación actualizada ✓');
+    } else {
+      await saveToFirestore(key, record, null);
+      showToast('Publicación agregada ✓');
+    }
+    closeModal('modal-pub');
+  } catch(e) {
+    showToast('Error al guardar. Verificá tu conexión.', true);
+    console.error(e);
+  }
+}
+
+async function deletePub(key, idx) {
+  if (!confirm('¿Eliminar esta publicación?')) return;
+  const id = DATA[key][idx]?._id;
+  if (!id) return;
+  try {
+    await deleteFromFirestore(key, id);
+    showToast('Eliminado ✓');
+  } catch(e) {
+    showToast('Error al eliminar', true);
+  }
+}
+
 // ==================== INIT ====================
+// Exponer funciones al scope global (necesario con type="module")
+window.doLogin = doLogin;
+window.logout = logout;
+window.openAddModal = openAddModal;
+window.openEditModal = openEditModal;
+window.savePub = savePub;
+window.deletePub = deletePub;
+window.closeModal = closeModal;
+window.filterTable = filterTable;
+
 initUserButtons();
+uploadInitialDataIfEmpty().then(() => initFirebase());
 </script>
 </body>
 </html>
