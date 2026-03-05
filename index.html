@@ -270,7 +270,13 @@
     </div>
     <div class="login-sub" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px;">Marketing Digital · Calendario</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Seleccionar usuario:</div>
-    <div class="login-label" id="user-buttons"></div>
+    <div class="login-label" id="user-buttons">
+      <button class="user-btn" data-user="admin" onclick="selectUser(this)">Admin</button>
+      <button class="user-btn" data-user="kevin" onclick="selectUser(this)">Kevin</button>
+      <button class="user-btn" data-user="jose" onclick="selectUser(this)">Jose</button>
+      <button class="user-btn" data-user="elias" onclick="selectUser(this)">Elias</button>
+      <button class="user-btn" data-user="rocio" onclick="selectUser(this)">Rocio</button>
+    </div>
     <input class="login-pass" type="password" id="login-pass" placeholder="Contraseña" autocomplete="current-password">
     <button class="login-btn" onclick="doLogin()">Ingresar →</button>
     <div class="login-error" id="login-error"></div>
@@ -521,19 +527,17 @@ let currentPage = 'dashboard';
 
 // ==================== AUTH ====================
 function initUserButtons() {
-  const wrap = document.getElementById('user-buttons');
-  Object.keys(USERS).forEach(u => {
-    const b = document.createElement('button');
-    b.className = 'user-btn';
-    b.dataset.user = u;
-    b.textContent = u.charAt(0).toUpperCase() + u.slice(1);
-    b.onclick = () => {
-      document.querySelectorAll('.user-btn').forEach(x => x.classList.remove('active'));
-      b.classList.add('active');
-    };
-    wrap.appendChild(b);
+  // Buttons are hardcoded in HTML, just add click handlers
+  document.querySelectorAll('.user-btn').forEach(b => {
+    b.onclick = () => selectUser(b);
   });
 }
+
+function selectUser(btn) {
+  document.querySelectorAll('.user-btn').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active');
+}
+window.selectUser = selectUser;
 
 function doLogin() {
   const selected = document.querySelector('.user-btn.active');
