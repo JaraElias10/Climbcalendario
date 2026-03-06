@@ -389,17 +389,14 @@ const FRASES={
   rocio:['Conectar marcas con personas es un arte.','La comunicación mueve el mundo.','Tu trabajo impacta más de lo que creés.','Cada post es una conversación.','La comunidad se construye con consistencia.'],
   admin:['El sistema funciona porque vos lo cuidás.','Control + orden = tranquilidad.','Detrás de cada app hay alguien que la mantiene.','Administrar bien es liberar al equipo.','La organización es la base del crecimiento.'],
 };
-let _fraseIdx={};
 function getFrase(user){
   const arr=FRASES[user]||FRASES.admin;
-  if(_fraseIdx[user]===undefined)_fraseIdx[user]=Math.floor(Math.random()*arr.length);
-  return arr[_fraseIdx[user]];
+  const today=new Date();
+  const seed=today.getFullYear()*10000+(today.getMonth()+1)*100+today.getDate();
+  return arr[seed%arr.length];
 }
 function nextFrase(user){
-  const arr=FRASES[user]||FRASES.admin;
-  _fraseIdx[user]=((_fraseIdx[user]||0)+1)%arr.length;
-  const el=document.getElementById('dash-frase');
-  if(el){el.style.opacity=0;setTimeout(()=>{el.textContent='"'+getFrase(user)+'"';el.style.opacity=1;},400);}
+  // Frase fija por día - no hace nada al tocar
 }
 
 const ESTADO_OPTS=['Pendiente','Diseñando','Diseñado','Esperando aprobación','Aprobado','Programado','Publicado','Modificar'];
@@ -476,7 +473,7 @@ function initApp(){
 
 function goTo(page){
   currentPage=page;mobClose();
-  if(page!=='dashboard'){if(window._clockTimer){clearInterval(window._clockTimer);window._clockTimer=null;}if(window._fraseTimer){clearInterval(window._fraseTimer);window._fraseTimer=null;}}
+  if(page!=='dashboard'){if(window._clockTimer){clearInterval(window._clockTimer);window._clockTimer=null;}}
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el=document.getElementById('page-'+page);if(el)el.classList.add('active');
@@ -575,8 +572,7 @@ function renderDashboard(){
   updateClock();
   if(window._clockTimer)clearInterval(window._clockTimer);
   window._clockTimer=setInterval(updateClock,1000);
-  if(window._fraseTimer)clearInterval(window._fraseTimer);
-  window._fraseTimer=setInterval(()=>nextFrase(currentUser),8000);
+
 }
 
 function renderKanban(items){
