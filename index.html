@@ -3,6 +3,12 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Climb Calendario">
+<meta name="theme-color" content="#0f0f14">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Climb · Calendario</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -123,7 +129,22 @@ tr:hover td{background:rgba(255,255,255,.02);}
   .page-title{font-size:19px!important;}
   td:nth-child(6),th:nth-child(6){display:none;}
 }
+
+@keyframes fadeInUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+.dash-anim-1{animation:fadeInUp .5s ease both}
+.dash-anim-2{animation:fadeInUp .6s ease .08s both}
+.dash-anim-3{animation:fadeInUp .6s ease .16s both}
+.dash-anim-4{animation:fadeInUp .6s ease .24s both}
+.dash-anim-5{animation:fadeInUp .6s ease .32s both}
+.dash-anim-6{animation:fadeInUp .6s ease .40s both}
+.stat-icon{animation:float 3s ease-in-out infinite;}
+.motivacional{animation:fadeIn 1.2s ease both;}
 </style>
+
 </head>
 <body>
 <button id="menu-btn" onclick="mobToggle()">☰</button>
@@ -175,6 +196,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="page" id="page-instrucciones"></div>
     <div class="page" id="page-premio"></div>
     <div class="page" id="page-usuarios"></div>
+    <div class="page" id="page-clientes"></div>
     <div class="page" id="page-auditoria"></div>
   </main>
 </div>
@@ -184,7 +206,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="modal-header"><h3 id="modal-pub-title">Nueva Publicación</h3><button class="modal-close" onclick="closeModal('modal-pub')">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="pub-edit-idx">
-      <div><label class="form-label">Empresa / Cliente</label><input class="form-input" id="pub-empresa" placeholder="Nombre de la empresa"></div>
+      <div><label class="form-label">Empresa / Cliente</label>
+        <select class="form-input" id="pub-empresa">
+          <option value="">— Seleccionar cliente —</option>
+        </select>
+      </div>
       <div><label class="form-label">Día</label>
         <select class="form-input" id="pub-dia">
           <option value="">Sin día</option><option>Lunes</option><option>Martes</option>
@@ -224,6 +250,27 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <div class="toast" id="toast"></div>
 
 <script>
+
+function updateClock(){
+  const el=document.getElementById('dash-clock');
+  const del=document.getElementById('dash-date');
+  if(!el)return;
+  const now=new Date();
+  const h=now.getHours(),m=now.getMinutes(),s=now.getSeconds();
+  el.textContent=(h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+  if(del){
+    const dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    del.textContent=dias[now.getDay()]+' '+now.getDate()+' '+meses[now.getMonth()]+' '+now.getFullYear();
+  }
+}
+function getGreeting(){
+  const h=new Date().getHours();
+  if(h>=6&&h<12)return'Buenos días';
+  if(h>=12&&h<20)return'Buenas tardes';
+  return'Buenas noches';
+}
+
 function mobToggle(){document.querySelector('.sidebar').classList.toggle('mob-open');document.getElementById('mob-overlay').classList.toggle('mob-open');}
 function mobClose(){if(window.innerWidth<=768){document.querySelector('.sidebar').classList.remove('mob-open');document.getElementById('mob-overlay').classList.remove('mob-open');}}
 
@@ -238,11 +285,11 @@ function logAudit(action,detail){
 function loadAudit(){try{const s=localStorage.getItem('climb_audit');if(s)AUDIT_LOG=JSON.parse(s);}catch(e){}}
 
 let USERS={
-  admin:{pass:'eliclimb1',role:'Administrador',color:'#7c6af7',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio','usuarios','auditoria']},
-  kevin:{pass:'kevin',role:'Diseñador',color:'#f7916a',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio']},
-  jose:{pass:'jose',role:'Diseñador',color:'#7c6af7',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio']},
-  elias:{pass:'elias',role:'CEO',color:'#4fd1c5',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio']},
-  rocio:{pass:'rocio',role:'CM',color:'#f472b6',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio']},
+  admin:{pass:'eliclimb1',role:'Administrador',color:'#7c6af7',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio','clientes','usuarios','auditoria']},
+  kevin:{pass:'kevin',role:'Diseñador',color:'#f7916a',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio','clientes']},
+  jose:{pass:'jose',role:'Diseñador',color:'#7c6af7',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio','clientes']},
+  elias:{pass:'elias',role:'CEO',color:'#4fd1c5',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio','clientes']},
+  rocio:{pass:'rocio',role:'CM',color:'#f472b6',pages:['dashboard','publicaciones','cooperativas','ccu','festivos','calendario','instrucciones','premio','clientes']},
 };
 
 let DATA={
@@ -334,11 +381,34 @@ const CALENDAR_EVENTS=[
   {mes:'DICIEMBRE',fecha:'25 Dic 2026',desc:'Navidad'},
 ];
 
+
+const FRASES={
+  kevin:['El diseño es inteligencia hecha visible.','La creatividad no se agota, se entrena.','Cada píxel cuenta.','Tu mejor trabajo está por venir.','El detalle es lo que distingue.'],
+  jose:['Diseñar es resolver problemas con belleza.','La constancia supera al talento.','Hoy es un buen día para crear algo increíble.','El arte está en los detalles.','Inspiración + acción = resultado.'],
+  elias:['Los líderes crean más líderes.','El éxito es la suma de pequeños esfuerzos.','Visión sin acción es sueño. Acción sin visión es caos.','Hoy tomamos decisiones que cambian el rumbo.','Climb sigue creciendo.'],
+  rocio:['Conectar marcas con personas es un arte.','La comunicación mueve el mundo.','Tu trabajo impacta más de lo que creés.','Cada post es una conversación.','La comunidad se construye con consistencia.'],
+  admin:['El sistema funciona porque vos lo cuidás.','Control + orden = tranquilidad.','Detrás de cada app hay alguien que la mantiene.','Administrar bien es liberar al equipo.','La organización es la base del crecimiento.'],
+};
+let _fraseIdx={};
+function getFrase(user){
+  const arr=FRASES[user]||FRASES.admin;
+  if(_fraseIdx[user]===undefined)_fraseIdx[user]=Math.floor(Math.random()*arr.length);
+  return arr[_fraseIdx[user]];
+}
+function nextFrase(user){
+  const arr=FRASES[user]||FRASES.admin;
+  _fraseIdx[user]=((_fraseIdx[user]||0)+1)%arr.length;
+  const el=document.getElementById('dash-frase');
+  if(el){el.style.opacity=0;setTimeout(()=>{el.textContent='"'+getFrase(user)+'"';el.style.opacity=1;},400);}
+}
+
 const ESTADO_OPTS=['Pendiente','Diseñando','Diseñado','Esperando aprobación','Aprobado','Programado','Publicado','Modificar'];
 const ESTADO_COLORS={'Publicado':'#56c596','Pendiente':'#f06b6b','Diseñado':'#63a4f5','Diseñando':'#7c6af7','Programado':'#4fd1c5','Modificar':'#f7916a','Esperando aprobación':'#f5c842','Aprobado':'#4fd1c5'};
 const COMPANY_PALETTE=['#7c6af7','#f7916a','#4fd1c5','#f472b6','#56c596','#63a4f5','#f5c842','#e879f9','#fb923c'];
 
 let currentUser=null,currentPage='dashboard',editKey=null;
+let CLIENTES_DATA=[];
+let CATEGORIAS_DATA=[];
 // Guardar estado de filtros para preservarlos al actualizar
 const FILTER_STATE={
   pub:{q:'',est:'',enc:'',dia:''},
@@ -357,6 +427,7 @@ const NAV_CONFIG=[
   {id:'instrucciones',icon:'📖',label:'Instrucciones'},
   {id:'premio',icon:'🏆',label:'Premio Producción'},
   {id:'usuarios',icon:'👤',label:'Usuarios'},
+  {id:'clientes',icon:'🏢',label:'Clientes'},
   {id:'auditoria',icon:'🔍',label:'Auditoría'},
 ];
 
@@ -405,6 +476,7 @@ function initApp(){
 
 function goTo(page){
   currentPage=page;mobClose();
+  if(page!=='dashboard'){if(window._clockTimer){clearInterval(window._clockTimer);window._clockTimer=null;}if(window._fraseTimer){clearInterval(window._fraseTimer);window._fraseTimer=null;}}
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el=document.getElementById('page-'+page);if(el)el.classList.add('active');
@@ -415,7 +487,7 @@ function goTo(page){
     ccu:()=>renderTable('ccu','page-ccu','CCU Central','⚡'),
     festivos:()=>renderTable('fest','page-festivos','Días Festivos','🎉'),
     calendario:renderCalendario,instrucciones:renderInstrucciones,
-    premio:renderPremio,usuarios:renderUsuarios,auditoria:renderAuditoria,
+    premio:renderPremio,clientes:renderClientes,usuarios:renderUsuarios,auditoria:renderAuditoria,
   };
   if(renderers[page])renderers[page]();
 }
@@ -438,18 +510,25 @@ function renderDashboard(){
   const encargados=['Kevin','Jose','Elias','Rocio'];
   const encColors={kevin:'#f7916a',jose:'#7c6af7',elias:'#4fd1c5',rocio:'#f472b6'};
   document.getElementById('page-dashboard').innerHTML=`
-    <div class="page-header"><div>
-      <div class="page-title">Buenos días, ${currentUser.charAt(0).toUpperCase()+currentUser.slice(1)} 👋</div>
-      <div class="page-sub">Resumen en tiempo real · ${all.length} publicaciones</div>
-    </div></div>
-    <div class="stats-grid" style="margin-bottom:20px;">
+    <div class="page-header dash-anim-1" style="align-items:center;">
+      <div>
+        <div class="page-title">${getGreeting()}, ${currentUser.charAt(0).toUpperCase()+currentUser.slice(1)} 👋</div>
+        <div class="page-sub">Resumen en tiempo real · ${all.length} publicaciones</div>
+        <div id="dash-frase" class="motivacional" onclick="nextFrase(currentUser)" style="font-size:11px;color:var(--accent);margin-top:6px;cursor:pointer;font-style:italic;transition:opacity .4s;max-width:420px;">"${getFrase(currentUser)}"</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div id="dash-clock" style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:2px;line-height:1;"></div>
+        <div id="dash-date" style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.05em;"></div>
+      </div>
+    </div>
+    <div class="stats-grid dash-anim-2" style="margin-bottom:20px;">
       <div class="stat-card purple"><div class="stat-val">${all.length}</div><div class="stat-label">Total</div><div class="stat-icon">📋</div></div>
       <div class="stat-card" style="background:rgba(240,107,107,.1);border-color:rgba(240,107,107,.25);"><div class="stat-val" style="color:#f06b6b;">${cE('Pendiente')}</div><div class="stat-label">Pendientes</div><div class="stat-icon">🔴</div></div>
       <div class="stat-card green"><div class="stat-val" style="color:#56c596;">${cE('Publicado')}</div><div class="stat-label">Publicados</div><div class="stat-icon">✅</div></div>
       <div class="stat-card teal"><div class="stat-val">${mine.length}</div><div class="stat-label">Mis tareas</div><div class="stat-icon">👤</div></div>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;">Estado de publicaciones</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
+    <div class="dash-anim-3" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;">Estado de publicaciones</div>
+    <div class="dash-anim-3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
       ${EDASD.map(e=>{const c=cE(e.key),pct=Math.round(c/total*100);return `<div style="background:${e.bg};border:1px solid ${e.color}33;border-radius:14px;padding:14px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:0;left:0;width:${pct}%;height:3px;background:${e.color};"></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:7px;"><span style="font-size:17px;">${e.icon}</span><span style="font-size:20px;font-weight:800;color:${e.color};">${c}</span></div>
@@ -458,7 +537,7 @@ function renderDashboard(){
         <div style="font-size:10px;color:${e.color};font-weight:600;margin-top:3px;">${pct}%</div>
       </div>`;}).join('')}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+    <div class="dash-anim-4" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;">Por encargado</div>
         ${encargados.map(enc=>{
@@ -490,9 +569,14 @@ function renderDashboard(){
           </div>`).join('')}
       </div>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;">Vista Kanban</div>
+    <div class="dash-anim-5" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;">Vista Kanban</div>
     ${renderKanban(all)}
   `;
+  updateClock();
+  if(window._clockTimer)clearInterval(window._clockTimer);
+  window._clockTimer=setInterval(updateClock,1000);
+  if(window._fraseTimer)clearInterval(window._fraseTimer);
+  window._fraseTimer=setInterval(()=>nextFrase(currentUser),8000);
 }
 
 function renderKanban(items){
@@ -603,7 +687,9 @@ function openAddModal(key){
   editKey=key;
   document.getElementById('pub-edit-idx').value='';
   document.getElementById('modal-pub-title').textContent='Nueva Publicación';
-  ['pub-empresa','pub-contenido','pub-comentario'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pub-contenido').value='';
+  document.getElementById('pub-comentario').value='';
+  populateClienteSelect(document.getElementById('pub-empresa'),'');
   document.getElementById('pub-dia').value='';document.getElementById('pub-encargado').value='';
   document.getElementById('pub-estado').value='Pendiente';document.getElementById('pub-seccion').value=key;
   openModal('modal-pub');
@@ -612,7 +698,7 @@ function openEditModal(key,idx){
   editKey=key;const r=DATA[key][idx];
   document.getElementById('pub-edit-idx').value=idx;
   document.getElementById('modal-pub-title').textContent='Editar Publicación';
-  document.getElementById('pub-empresa').value=r.empresa||'';
+  populateClienteSelect(document.getElementById('pub-empresa'),r.empresa||'');
   document.getElementById('pub-dia').value=r.dia||'';
   document.getElementById('pub-encargado').value=r.encargado||'';
   document.getElementById('pub-contenido').value=r.contenido||'';
@@ -622,8 +708,8 @@ function openEditModal(key,idx){
   openModal('modal-pub');
 }
 async function savePub(){
-  const empresa=document.getElementById('pub-empresa').value.trim();
-  if(!empresa){showToast('Ingresa el nombre de la empresa',true);return;}
+  const empresa=document.getElementById('pub-empresa').value;
+  if(!empresa){showToast('Seleccioná un cliente',true);return;}
   const record={empresa,dia:document.getElementById('pub-dia').value,contenido:document.getElementById('pub-contenido').value,estado:document.getElementById('pub-estado').value,encargado:document.getElementById('pub-encargado').value,comentario:document.getElementById('pub-comentario').value};
   const key=document.getElementById('pub-seccion').value;
   const idxStr=document.getElementById('pub-edit-idx').value;
@@ -674,16 +760,77 @@ function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.getElementById('modal-pub').addEventListener('click',e=>{if(e.target.id==='modal-pub')closeModal('modal-pub');});
 
+const MESES_ES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const MESES_CORTOS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
 function renderCalendario(){
-  const months=[...new Set(CALENDAR_EVENTS.map(e=>e.mes))];
+  const allEvents=[...CALENDAR_EVENTS,...(window.EXTRA_EVENTS||[])];
+  allEvents.sort((a,b)=>{
+    const fa=new Date(a.fecha.split(' ').reverse().join(' '));
+    const fb=new Date(b.fecha.split(' ').reverse().join(' '));
+    return fa-fb;
+  });
+  const months=[...new Set(allEvents.map(e=>e.mes))];
+  const canAdd=(currentUser==='admin'||currentUser==='rocio');
   document.getElementById('page-calendario').innerHTML=`
-    <div class="page-header"><div><div class="page-title">📅 Calendario de Fechas</div><div class="page-sub">${CALENDAR_EVENTS.length} fechas importantes</div></div></div>
+    <div class="page-header">
+      <div><div class="page-title">📅 Calendario de Fechas</div><div class="page-sub">${allEvents.length} fechas importantes</div></div>
+      ${canAdd?`<button class="btn btn-primary" onclick="openAddFestivo()">+ Agregar fecha</button>`:''}
+    </div>
     <div class="cal-months">${months.map(m=>{
-      const evs=CALENDAR_EVENTS.filter(e=>e.mes===m);
-      return `<div class="cal-month"><div class="cal-month-head"><h3>${m}</h3></div>
-        ${evs.map(e=>`<div class="cal-event"><div class="cal-date">${e.fecha.split(' ').slice(0,2).join(' ')}</div><div class="cal-desc">${e.desc}</div></div>`).join('')}
+      const evs=allEvents.filter(e=>e.mes===m);
+      return `<div class="cal-month"><div class="cal-month-head" style="display:flex;justify-content:space-between;align-items:center;"><h3>${m}</h3><span style="font-size:11px;color:var(--muted);">${evs.length} fechas</span></div>
+        ${evs.map(e=>`<div class="cal-event" style="position:relative;">
+          <div class="cal-date">${e.fecha.split(' ').slice(0,2).join(' ')}</div>
+          <div class="cal-desc" style="flex:1;">${e.desc}</div>
+          ${e._custom&&canAdd?`<button onclick="deleteFestivo('${e._id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px;" title="Eliminar">✕</button>`:''}
+        </div>`).join('')}
       </div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>
+    <div class="modal-overlay" id="modal-festivo" onclick="if(event.target.id==='modal-festivo')closeModal('modal-festivo')">
+      <div class="modal">
+        <div class="modal-header"><h3>Agregar Fecha</h3><button class="modal-close" onclick="closeModal('modal-festivo')">✕</button></div>
+        <div class="modal-body">
+          <div><label class="form-label">Descripción</label><input class="form-input" id="festivo-desc" placeholder="Ej: Día del Niño"></div>
+          <div><label class="form-label">Fecha</label><input class="form-input" type="date" id="festivo-fecha"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('modal-festivo')">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveFestivo()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openAddFestivo(){openModal('modal-festivo');document.getElementById('festivo-desc').value='';document.getElementById('festivo-fecha').value='';}
+
+async function saveFestivo(){
+  const desc=(document.getElementById('festivo-desc')||{}).value?.trim()||'';
+  const fechaVal=(document.getElementById('festivo-fecha')||{}).value||'';
+  if(!desc||!fechaVal){showToast('Completá todos los campos',true);return;}
+  const d=new Date(fechaVal+'T12:00:00');
+  const dia=d.getDate();
+  const mesCorto=MESES_CORTOS[d.getMonth()];
+  const anio=d.getFullYear();
+  const mes=MESES_ES[d.getMonth()];
+  const fecha=dia+' '+mesCorto+' '+anio;
+  try{
+    const id=Date.now().toString()+Math.random().toString(36).slice(2,5);
+    await db.collection('festivos_extra').doc(id).set({desc,fecha,mes,_custom:true});
+    logAudit('📅 Agregó fecha',desc+' — '+fecha);
+    showToast('Fecha agregada ✓');
+    closeModal('modal-festivo');
+  }catch(e){showToast('Error al guardar',true);console.error(e);}
+}
+
+async function deleteFestivo(id){
+  if(!confirm('¿Eliminar esta fecha?'))return;
+  try{
+    await db.collection('festivos_extra').doc(id).delete();
+    logAudit('🗑️ Eliminó fecha','id:'+id);
+    showToast('Fecha eliminada ✓');
+  }catch(e){showToast('Error',true);}
 }
 
 function renderInstrucciones(){
@@ -876,6 +1023,196 @@ function deleteUser(key){
   showToast('Usuario eliminado ✓');goTo('usuarios');
 }
 
+
+function populateClienteSelect(sel,currentVal){
+  sel.innerHTML='<option value="">— Seleccionar cliente —</option>';
+  CLIENTES_DATA.forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c.nombre;opt.textContent=c.nombre+(c.categoria?' ('+c.categoria+')':'');
+    if(c.nombre===currentVal)opt.selected=true;
+    sel.appendChild(opt);
+  });
+  if(currentVal&&![...sel.options].find(o=>o.value===currentVal)){
+    const opt=document.createElement('option');opt.value=currentVal;opt.textContent=currentVal+' (anterior)';opt.selected=true;
+    sel.appendChild(opt);
+  }
+}
+
+function renderClientes(){
+  const cats=[...new Set(CLIENTES_DATA.map(c=>c.categoria||'Sin categoría'))].sort();
+  const filterCat=document.getElementById('filter-cat-clientes')?document.getElementById('filter-cat-clientes').value:'';
+  const filterQ=document.getElementById('search-clientes')?document.getElementById('search-clientes').value.toLowerCase():'';
+  const filtered=CLIENTES_DATA.filter(c=>{
+    const mQ=!filterQ||(c.nombre+c.ruc+c.celular+c.direccion+c.categoria).toLowerCase().includes(filterQ);
+    const mC=!filterCat||c.categoria===filterCat;
+    return mQ&&mC;
+  });
+  document.getElementById('page-clientes').innerHTML=`
+    <div class="page-header">
+      <div><div class="page-title">🏢 Clientes</div><div class="page-sub">${CLIENTES_DATA.length} clientes registrados</div></div>
+      <button class="btn btn-primary" onclick="openAddCliente()">+ Nuevo cliente</button>
+    </div>
+    <div class="filters">
+      <input class="search-input" id="search-clientes" placeholder="🔍 Buscar cliente, RUC, celular..." oninput="renderClientes()" value="${filterQ}">
+      <select class="filter-select" id="filter-cat-clientes" onchange="renderClientes()">
+        <option value="">Todas las categorías</option>
+        ${cats.map(cat=>`<option ${cat===filterCat?'selected':''}>${cat}</option>`).join('')}
+      </select>
+    </div>
+    ${filtered.length===0?`<div class="empty"><div class="empty-icon">🏢</div><p>No hay clientes todavía. ¡Agregá el primero!</p></div>`:`
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>RUC</th><th>Celular</th><th>Dirección</th><th>Categoría</th><th></th></tr></thead>
+        <tbody>
+          ${filtered.map(cl=>{
+            const catColor={'Cooperativa':'#4fd1c5','General':'#7c6af7','CCU':'#f7916a','Festivo':'#f472b6'}[cl.categoria]||'#63a4f5';
+            return `<tr>
+              <td><strong>${cl.nombre||'—'}</strong></td>
+              <td style="color:var(--muted);font-size:12px;">${cl.ruc||'—'}</td>
+              <td style="font-size:13px;">${cl.celular||'—'}</td>
+              <td style="color:var(--muted);font-size:12px;max-width:180px;">${cl.direccion||'—'}</td>
+              <td>${cl.categoria?`<span style="background:${catColor}22;color:${catColor};font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;">${cl.categoria}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+              <td style="white-space:nowrap;">
+                <button class="btn btn-ghost btn-sm" onclick="openEditCliente('${cl._id}')">✏️</button>
+                <button class="btn btn-sm" style="background:rgba(240,107,107,.1);color:var(--danger);border:1px solid transparent;margin-left:4px;" onclick="deleteCliente('${cl._id}','${(cl.nombre||'').replace(/'/g,"\'")}')">🗑️</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`}
+    <div class="modal-overlay" id="modal-cliente" onclick="if(event.target.id==='modal-cliente')closeModal('modal-cliente')">
+      <div class="modal">
+        <div class="modal-header"><h3 id="modal-cliente-title">Nuevo Cliente</h3><button class="modal-close" onclick="closeModal('modal-cliente')">✕</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="cliente-edit-id">
+          <div><label class="form-label">Nombre / Empresa *</label><input class="form-input" id="cliente-nombre" placeholder="Nombre del cliente"></div>
+          <div><label class="form-label">RUC</label><input class="form-input" id="cliente-ruc" placeholder="RUC del cliente"></div>
+          <div><label class="form-label">Celular</label><input class="form-input" id="cliente-celular" placeholder="Ej: 0981 123 456"></div>
+          <div><label class="form-label">Dirección</label><input class="form-input" id="cliente-direccion" placeholder="Dirección o ciudad"></div>
+          <div>
+            <label class="form-label">Categoría</label>
+            <div style="display:flex;gap:8px;">
+              <select class="form-input" id="cliente-categoria" style="flex:1;" onchange="onCatChange()">
+                <option value="">Sin categoría</option>
+                ${CATEGORIAS_DATA.map(cat=>`<option value="${cat.nombre}">${cat.nombre}</option>`).join('')}
+                <option value="__nueva__">➕ Crear nueva categoría...</option>
+              </select>
+            </div>
+          </div>
+          <div id="nueva-cat-wrap" style="display:none;">
+            <label class="form-label">Nueva categoría</label>
+            <div style="display:flex;gap:8px;">
+              <input class="form-input" id="nueva-categoria" placeholder="Nombre de la nueva categoría" style="flex:1;">
+              <button class="btn btn-primary btn-sm" onclick="guardarNuevaCategoria()" style="white-space:nowrap;">Guardar</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('modal-cliente')">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveCliente()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function onCatChange(){
+  const sel=document.getElementById('cliente-categoria');
+  const wrap=document.getElementById('nueva-cat-wrap');
+  if(sel&&wrap)wrap.style.display=sel.value==='__nueva__'?'block':'none';
+}
+
+async function guardarNuevaCategoria(){
+  const input=document.getElementById('nueva-categoria');
+  const nombre=(input?input.value:'').trim();
+  if(!nombre){showToast('Ingresá un nombre para la categoría',true);return;}
+  if(CATEGORIAS_DATA.find(c=>c.nombre===nombre)){showToast('Esa categoría ya existe',true);return;}
+  try{
+    const id=Date.now().toString()+Math.random().toString(36).slice(2,5);
+    await db.collection('categorias').doc(id).set({nombre});
+    showToast('Categoría creada ✓');
+    if(input)input.value='';
+    const wrap=document.getElementById('nueva-cat-wrap');if(wrap)wrap.style.display='none';
+    // Select it in dropdown after listener updates
+    setTimeout(()=>{
+      const sel=document.getElementById('cliente-categoria');
+      if(sel){
+        let opt=[...sel.options].find(o=>o.value===nombre);
+        if(!opt){opt=document.createElement('option');opt.value=nombre;opt.textContent=nombre;sel.insertBefore(opt,sel.lastElementChild);}
+        sel.value=nombre;
+      }
+    },600);
+  }catch(e){showToast('Error al crear categoría',true);console.error(e);}
+}
+
+function openAddCliente(){
+  document.getElementById('modal-cliente-title').textContent='Nuevo Cliente';
+  document.getElementById('cliente-edit-id').value='';
+  ['cliente-nombre','cliente-ruc','cliente-celular','cliente-direccion'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const sel=document.getElementById('cliente-categoria');if(sel)sel.value='';
+  const wrap=document.getElementById('nueva-cat-wrap');if(wrap)wrap.style.display='none';
+  openModal('modal-cliente');
+}
+
+function openEditCliente(id){
+  const cl=CLIENTES_DATA.find(c=>c._id===id);if(!cl)return;
+  document.getElementById('modal-cliente-title').textContent='Editar Cliente';
+  document.getElementById('cliente-edit-id').value=id;
+  document.getElementById('cliente-nombre').value=cl.nombre||'';
+  document.getElementById('cliente-ruc').value=cl.ruc||'';
+  document.getElementById('cliente-celular').value=cl.celular||'';
+  document.getElementById('cliente-direccion').value=cl.direccion||'';
+  const sel=document.getElementById('cliente-categoria');
+  if(sel){
+    // Make sure the option exists
+    let opt=[...sel.options].find(o=>o.value===cl.categoria);
+    if(!opt&&cl.categoria){opt=document.createElement('option');opt.value=cl.categoria;opt.textContent=cl.categoria;sel.insertBefore(opt,sel.lastElementChild);}
+    sel.value=cl.categoria||'';
+  }
+  const wrap=document.getElementById('nueva-cat-wrap');if(wrap)wrap.style.display='none';
+  openModal('modal-cliente');
+}
+
+async function saveCliente(){
+  const nombre=(document.getElementById('cliente-nombre')||{}).value?.trim()||'';
+  if(!nombre){showToast('Ingresá el nombre del cliente',true);return;}
+  const catSel=document.getElementById('cliente-categoria');
+  const catVal=catSel?catSel.value:'';
+  if(catVal==='__nueva__'){showToast('Guardá la nueva categoría primero',true);return;}
+  const record={
+    nombre,
+    ruc:(document.getElementById('cliente-ruc')||{}).value?.trim()||'',
+    celular:(document.getElementById('cliente-celular')||{}).value?.trim()||'',
+    direccion:(document.getElementById('cliente-direccion')||{}).value?.trim()||'',
+    categoria:catVal,
+  };
+  const editId=document.getElementById('cliente-edit-id').value;
+  showToast('Guardando... ⏳');
+  try{
+    if(editId){
+      await db.collection('clientes').doc(editId).set(record);
+      logAudit('✏️ Editó cliente',nombre);
+      showToast('Cliente actualizado ✓');
+    }else{
+      const id=Date.now().toString()+Math.random().toString(36).slice(2,5);
+      await db.collection('clientes').doc(id).set(record);
+      logAudit('➕ Agregó cliente',nombre);
+      showToast('Cliente agregado ✓');
+    }
+    closeModal('modal-cliente');
+  }catch(e){showToast('Error al guardar',true);console.error(e);}
+}
+
+async function deleteCliente(id,nombre){
+  if(!confirm('¿Eliminar al cliente '+nombre+'?'))return;
+  try{
+    await db.collection('clientes').doc(id).delete();
+    logAudit('🗑️ Eliminó cliente',nombre);
+    showToast('Cliente eliminado ✓');
+  }catch(e){showToast('Error al eliminar',true);}
+}
+
 function renderAuditoria(){
   const uC={admin:'#7c6af7',kevin:'#f7916a',jose:'#7c6af7',elias:'#4fd1c5',rocio:'#f472b6'};
   const byUser={};
@@ -922,6 +1259,23 @@ function setOnlineStatus(online){const el=document.getElementById('online-status
 const SECTIONS=['pub','coop','ccu','fest'];
 
 function initFirebase(){
+  // Listen festivos extra (agregados por rocio/admin)
+  db.collection('festivos_extra').onSnapshot(snap=>{
+    window.EXTRA_EVENTS=[];snap.forEach(d=>window.EXTRA_EVENTS.push({_id:d.id,...d.data(),_custom:true}));
+    if(currentUser&&currentPage==='calendario')renderCalendario();
+  },err=>{console.error(err);});
+  // Listen clientes
+  db.collection('clientes').onSnapshot(snap=>{
+    CLIENTES_DATA=[];snap.forEach(d=>CLIENTES_DATA.push({_id:d.id,...d.data()}));
+    CLIENTES_DATA.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
+    setOnlineStatus(true);
+    if(currentUser&&currentPage==='clientes')renderClientes();
+  },err=>{console.error(err);});
+  // Listen categorias
+  db.collection('categorias').onSnapshot(snap=>{
+    CATEGORIAS_DATA=[];snap.forEach(d=>CATEGORIAS_DATA.push({_id:d.id,...d.data()}));
+    CATEGORIAS_DATA.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es'));
+  },err=>{console.error(err);});
   SECTIONS.forEach(sec=>{
     db.collection(sec).onSnapshot(snapshot=>{
       DATA[sec]=[];snapshot.forEach(d=>DATA[sec].push({_id:d.id,...d.data()}));
