@@ -1327,23 +1327,23 @@ function showEstadoModal(estado,color,icon){
 
 // ── LIMPIAR PUBLICADOS ─────────────────────────────────────────────
 async function limpiarPublicados(){
-  const all=[...DATA.pub,...DATA.coop,...DATA.ccu,...DATA.fest];
-  const publicados=all.filter(r=>r.estado==='Publicado');
+  // Buscar publicados en cada colección por separado usando _id
+  const secciones=['pub','coop','ccu','fest'];
+  let publicados=[];
+  secciones.forEach(sec=>{
+    DATA[sec].filter(r=>r.estado==='Publicado').forEach(r=>publicados.push({...r,_sec:sec}));
+  });
   if(!publicados.length){showToast('No hay publicaciones en estado Publicado',false);return;}
-  if(!confirm('¿Eliminar '+publicados.length+' publicaciones con estado "Publicado"? Esta acción no se puede deshacer.'))return;
-  showToast('Eliminando... ⏳');
-  const secKey=r=>{
-    if(DATA.pub.includes(r))return 'pub';
-    if(DATA.coop.includes(r))return 'coop';
-    if(DATA.ccu.includes(r))return 'ccu';
-    return 'fest';
-  };
+  if(!confirm('¿Eliminar '+publicados.length+' publicaciones con estado "Publicado"?\nEsta acción no se puede deshacer.'))return;
+  showToast('Eliminando '+publicados.length+'... ⏳');
   let ok=0,err=0;
   for(const r of publicados){
     try{
-      const sk=secKey(r);
-      if(r._id){await db.collection(sk).doc(r._id).delete();ok++;}
-    }catch(e){err++;console.error(e);}
+      if(r._id&&r._sec){
+        await db.collection(r._sec).doc(r._id).delete();
+        ok++;
+      }
+    }catch(e){err++;console.error('Error eliminando',r._id,r._sec,e);}
   }
   logAudit('🗑️ Limpió publicados',ok+' eliminados'+(err?' ('+err+' errores)':''));
   showToast(ok+' publicaciones eliminadas ✓');
