@@ -1355,15 +1355,26 @@ function openGenerarSemana(key){
   if(!clientesDeSec.length){
     showToast('No hay clientes con plan asignado para esta sección',true);return;
   }
-  // Build preview list
+  // Verificar cuáles ya tienen publicaciones existentes
+  const existentes=DATA[key]||[];
   let rows='';
-  let total=0;
+  let totalCrear=0;
+  let totalSaltear=0;
   clientesDeSec.forEach(cl=>{
     const cant=parseInt(cl.pubSemana)||0;
-    total+=cant;
-    rows+='<tr>'+
-      '<td style="padding:8px 14px;font-size:13px;font-weight:600;">'+cl.nombre+'</td>'+
-      '<td style="padding:8px 14px;text-align:center;"><span style="background:rgba(124,106,247,.15);color:var(--accent);font-size:12px;font-weight:700;padding:2px 10px;border-radius:20px;">'+cant+' pub</span></td>'+
+    const yaExisten=existentes.filter(r=>r.empresa===cl.nombre).length;
+    const faltanCrear=Math.max(cant-yaExisten,0);
+    totalCrear+=faltanCrear;
+    if(yaExisten>0)totalSaltear++;
+    const estado=yaExisten>=cant
+      ?'<span style="background:rgba(86,197,150,.15);color:#56c596;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;">✓ Ya tiene '+yaExisten+'</span>'
+      :faltanCrear>0
+        ?'<span style="background:rgba(124,106,247,.15);color:var(--accent);font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;">+'+faltanCrear+' nuevas</span>'+(yaExisten?' <span style="font-size:11px;color:var(--muted);">(ya tiene '+yaExisten+')</span>':'')
+        :'<span style="background:rgba(86,197,150,.15);color:#56c596;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;">✓ Completo</span>';
+    rows+='<tr style="border-bottom:1px solid rgba(255,255,255,.04);">'+
+      '<td style="padding:9px 14px;font-size:13px;font-weight:600;">'+cl.nombre+'</td>'+
+      '<td style="padding:9px 14px;text-align:center;font-size:12px;color:var(--muted);">'+cant+' plan</td>'+
+      '<td style="padding:9px 14px;">'+estado+'</td>'+
       '</tr>';
   });
   // Ensure modal exists
@@ -1371,29 +1382,52 @@ function openGenerarSemana(key){
     const div=document.createElement('div');
     div.className='modal-overlay';div.id='modal-generar';
     div.onclick=e=>{if(e.target.id==='modal-generar')closeModal('modal-generar');};
-    div.innerHTML='<div class="modal"><div class="modal-header"><h3 id="modal-generar-title"></h3><button class="modal-close" onclick="closeModal(\'modal-generar\')">✕</button></div><div class="modal-body" id="modal-generar-body"></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal(\'modal-generar\')">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-generar">Generar</button></div></div>';
+    div.innerHTML=`<div class="modal" style="width:560px;"><div class="modal-header"><h3 id="modal-generar-title"></h3><button class="modal-close" onclick="closeModal('modal-generar')">✕</button></div><div class="modal-body" id="modal-generar-body"></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-generar')">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-generar">Generar</button></div></div>`;
     document.body.appendChild(div);
   }
   const secNames={pub:'Publicaciones Generales',coop:'Cooperativas',ccu:'CCU Central',fest:'Días Festivos'};
   document.getElementById('modal-generar-title').textContent='📅 Generar semana — '+secNames[key];
-  document.getElementById('modal-generar-body').innerHTML=
-    '<p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Se crearán <strong style="color:var(--text);">'+total+' publicaciones</strong> vacías listas para cargar contenido:</p>'+
-    '<div class="table-wrap" style="margin-bottom:0;"><table style="width:100%;border-collapse:collapse;">'+
-    '<thead><tr><th style="padding:8px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Cliente</th>'+
-    '<th style="padding:8px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Cantidad</th></tr></thead>'+
-    '<tbody>'+rows+'</tbody></table></div>'+
-    '<p style="font-size:11px;color:var(--muted);margin-top:12px;">💡 Las publicaciones se crean con estado <strong>Pendiente</strong> y sin día — después cargás el contenido normalmente.</p>';
-  document.getElementById('btn-confirmar-generar').onclick=()=>generarSemana(key,clientesDeSec);
+  const btnGenerar=document.getElementById('btn-confirmar-generar');
+  if(totalCrear===0){
+    document.getElementById('modal-generar-body').innerHTML=
+      '<div style="padding:20px 24px;">'+
+      '<div style="background:rgba(86,197,150,.1);border:1px solid rgba(86,197,150,.25);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:13px;color:#56c596;font-weight:600;">✅ Todos los clientes ya tienen sus publicaciones para esta semana</div>'+
+      '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">'+
+      '<thead><tr>'+
+      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Cliente</th>'+
+      '<th style="padding:9px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Plan</th>'+
+      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Estado</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    btnGenerar.style.display='none';
+  } else {
+    document.getElementById('modal-generar-body').innerHTML=
+      '<div style="padding:20px 24px;">'+
+      '<div style="background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.2);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;">'+
+      'Se crearán <strong style="color:var(--accent);">'+totalCrear+' publicaciones nuevas</strong>'+
+      (totalSaltear?' · <span style="color:var(--muted);">'+totalSaltear+' clientes con publicaciones existentes se completan o saltean</span>':'')+
+      '</div>'+
+      '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">'+
+      '<thead><tr>'+
+      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Cliente</th>'+
+      '<th style="padding:9px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Plan</th>'+
+      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Estado</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-top:12px;">💡 Solo se crean las publicaciones que faltan según el plan. Las existentes no se tocan.</p></div>';
+    btnGenerar.style.display='';
+    btnGenerar.onclick=()=>generarSemana(key,clientesDeSec,existentes);
+  }
   openModal('modal-generar');
 }
 
-async function generarSemana(key,clientes){
+async function generarSemana(key,clientes,existentes){
   closeModal('modal-generar');
-  showToast('Generando semana... ⏳');
+  showToast('Generando... ⏳');
   let ok=0;
   for(const cl of clientes){
     const cant=parseInt(cl.pubSemana)||0;
-    for(let i=0;i<cant;i++){
+    const yaExisten=(existentes||[]).filter(r=>r.empresa===cl.nombre).length;
+    const faltanCrear=Math.max(cant-yaExisten,0);
+    for(let i=0;i<faltanCrear;i++){
       try{
         const id=Date.now().toString()+Math.random().toString(36).slice(2,6)+'_'+i;
         await db.collection(key).doc(id).set({
@@ -1409,8 +1443,8 @@ async function generarSemana(key,clientes){
       }catch(e){console.error(e);}
     }
   }
-  logAudit('📅 Generó semana',ok+' publicaciones en '+key);
-  showToast(ok+' publicaciones generadas ✓');
+  logAudit('📅 Generó semana',ok+' publicaciones nuevas en '+key);
+  showToast(ok>0?ok+' publicaciones generadas ✓':'Todo ya estaba al día ✓');
 }
 
 
