@@ -663,20 +663,20 @@ function buildTableHTML(key,rows){
         <span style="font-size:11px;color:${col}88;">${g.rows.length} publicaciones</span>
       </div></td></tr>`:'';
     const dataRows=g.rows.map((r,ri)=>{
-      const idx=DATA[key].indexOf(r);const ecol=ESTADO_COLORS[r.estado]||'#aaa';
+      const rid=r._id||'';const ecol=ESTADO_COLORS[r.estado]||'#aaa';
       const isLast=ri===g.rows.length-1;
       return `<tr style="border-left:3px solid ${multi?col+'40':col};${isLast&&multi?'border-bottom:2px solid '+col+'20;':''}">
         <td style="padding-left:${multi?'22px':'14px'};"><strong style="color:${multi?'var(--text)':col};">${r.empresa||'—'}</strong></td>
         <td>${r.dia?`<span class="dia-chip">${r.dia}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
         <td style="color:var(--muted);font-size:12px;">${r.contenido||'—'}</td>
-        <td><select onchange="quickEstado('${key}',${idx},this.value)" style="background:${ecol}18;color:${ecol};border:1px solid ${ecol}44;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;outline:none;max-width:160px;">
+        <td><select onchange="quickEstadoById('${key}','${rid}',this.value)" style="background:${ecol}18;color:${ecol};border:1px solid ${ecol}44;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;outline:none;max-width:160px;">
           ${ESTADO_OPTS.map(e=>`<option value="${e}" ${r.estado===e?'selected':''} style="background:var(--card);color:var(--text);">${e}</option>`).join('')}
         </select></td>
         <td>${r.encargado?`<span class="resp-chip resp-${r.encargado.toLowerCase()}">${r.encargado}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
         <td style="color:var(--muted);font-size:12px;">${r.comentario||'—'}</td>
         <td style="white-space:nowrap;">
-          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}',${idx})">✏️</button>
-          <button class="btn btn-sm" style="background:rgba(240,107,107,.1);color:var(--danger);border:1px solid transparent;margin-left:4px;" onclick="deletePub('${key}',${idx})">🗑️</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditModalById('${key}','${rid}')">✏️</button>
+          <button class="btn btn-sm" style="background:rgba(240,107,107,.1);color:var(--danger);border:1px solid transparent;margin-left:4px;" onclick="deletePubById('${key}','${rid}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -695,6 +695,11 @@ function openAddModal(key){
   document.getElementById('pub-dia').value='';document.getElementById('pub-encargado').value='';
   document.getElementById('pub-estado').value='Pendiente';document.getElementById('pub-seccion').value=key;
   openModal('modal-pub');
+}
+function openEditModalById(key,id){
+  const idx=DATA[key].findIndex(r=>r._id===id);
+  if(idx<0){showToast('Error: registro no encontrado',true);return;}
+  openEditModal(key,idx);
 }
 function openEditModal(key,idx){
   editKey=key;const r=DATA[key][idx];
@@ -738,25 +743,36 @@ async function savePub(){
   }catch(e){showToast('Error al guardar',true);console.error(e);}
 }
 async function quickEstado(key,idx,newEstado){
-  const record={...DATA[key][idx],estado:newEstado};const id=DATA[key][idx]?._id;
-  delete record._id;
+  const r=DATA[key][idx];if(!r)return;
+  quickEstadoById(key,r._id,newEstado);
+}
+async function quickEstadoById(key,id,newEstado){
+  const r=DATA[key].find(x=>x._id===id);
+  if(!r){showToast('Error: registro no encontrado',true);return;}
+  const record={...r,estado:newEstado};delete record._id;
   try{
     await db.collection(key).doc(id).set(record);
-    DATA[key][idx].estado=newEstado;
-    logAudit('🔄 Estado',DATA[key][idx].empresa+' → '+newEstado);
+    r.estado=newEstado;
+    logAudit('🔄 Estado',r.empresa+' → '+newEstado);
     const pm={pub:'page-publicaciones',coop:'page-cooperativas',ccu:'page-ccu',fest:'page-festivos'};
     if(pm[key])filterTable(key,pm[key]);
     showToast('Estado actualizado ✓');
-  }catch(e){showToast('Error',true);}
+  }catch(e){showToast('Error',true);console.error(e);}
 }
 async function deletePub(key,idx){
+  // legacy - redirige aById
+  const r=DATA[key][idx];if(!r)return;
+  deletePubById(key,r._id);
+}
+async function deletePubById(key,id){
   if(!confirm('¿Eliminar esta publicación?'))return;
-  const id=DATA[key][idx]?._id;if(!id)return;
+  if(!id){showToast('Error: ID no encontrado',true);return;}
+  const r=DATA[key].find(x=>x._id===id);
   try{
     await db.collection(key).doc(id).delete();
-    logAudit('🗑️ Eliminó',(DATA[key][idx].empresa||'')+' de '+key);
+    logAudit('🗑️ Eliminó',(r?r.empresa||'':'?')+' de '+key);
     showToast('Eliminado ✓');
-  }catch(e){showToast('Error al eliminar',true);}
+  }catch(e){showToast('Error al eliminar',true);console.error(e);}
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
