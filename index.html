@@ -1479,24 +1479,10 @@ function initFirebase(){
   });
 }
 
-async function uploadInitialDataIfEmpty(){
-  for(const sec of SECTIONS){
-    const snap=await db.collection(sec).get();
-    if(snap.empty){
-      for(const rec of DATA[sec]){
-        const id=Date.now().toString()+Math.random().toString(36).slice(2,6);
-        const clean={...rec};delete clean._id;
-        await db.collection(sec).doc(id).set(clean);
-        await new Promise(r=>setTimeout(r,30));
-      }
-    }
-  }
-}
-
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   loadAudit();
-  uploadInitialDataIfEmpty().then(()=>initFirebase());
+  initFirebase();
 });
 </script>
 
