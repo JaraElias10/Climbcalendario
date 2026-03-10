@@ -511,14 +511,11 @@ function renderDashboard(){
       <div>
         <div class="page-title">${getGreeting()}, ${currentUser.charAt(0).toUpperCase()+currentUser.slice(1)} 👋</div>
         <div class="page-sub">Resumen en tiempo real · ${all.length} publicaciones</div>
-        <div id="dash-frase" class="motivacional" style="font-size:11px;color:var(--accent);margin-top:6px;font-style:italic;max-width:420px;">"${getFrase(currentUser)}"</div>
+        <div id="dash-frase" class="motivacional" onclick="nextFrase(currentUser)" style="font-size:11px;color:var(--accent);margin-top:6px;cursor:pointer;font-style:italic;transition:opacity .4s;max-width:420px;">"${getFrase(currentUser)}"</div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0;">
-        <div style="text-align:right;">
-          <div id="dash-clock" style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:2px;line-height:1;"></div>
-          <div id="dash-date" style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.05em;"></div>
-        </div>
-        ${(currentUser==='admin'||currentUser==='elias')?`<button class="btn btn-sm" style="background:rgba(240,107,107,.12);color:var(--danger);border:1px solid rgba(240,107,107,.25);" onclick="limpiarPublicados()">🗑️ Limpiar publicados</button>`:''}
+      <div style="text-align:right;flex-shrink:0;">
+        <div id="dash-clock" style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:2px;line-height:1;"></div>
+        <div id="dash-date" style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.05em;"></div>
       </div>
     </div>
     <div class="stats-grid dash-anim-2" style="margin-bottom:20px;">
@@ -597,7 +594,7 @@ function renderTable(key,pageId,title,icon){
     <div class="page-header">
       <div><div class="page-title">${icon} ${title}</div><div class="page-sub">${DATA[key].length} publicaciones</div></div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" onclick="openGenerarSemana('${key}')" title="Generar semana desde plantillas">📅 Generar semana</button>
+        <button class="btn btn-ghost" onclick="openGenerarSemana('${key}')">📅 Generar semana</button>
         <button class="btn btn-primary" onclick="openAddModal('${key}')">+ Nueva</button>
       </div>
     </div>
@@ -696,11 +693,6 @@ function openAddModal(key){
   document.getElementById('pub-estado').value='Pendiente';document.getElementById('pub-seccion').value=key;
   openModal('modal-pub');
 }
-function openEditModalById(key,id){
-  const idx=DATA[key].findIndex(r=>r._id===id);
-  if(idx<0){showToast('Error: registro no encontrado',true);return;}
-  openEditModal(key,idx);
-}
 function openEditModal(key,idx){
   editKey=key;const r=DATA[key][idx];
   document.getElementById('pub-edit-idx').value=idx;
@@ -743,36 +735,25 @@ async function savePub(){
   }catch(e){showToast('Error al guardar',true);console.error(e);}
 }
 async function quickEstado(key,idx,newEstado){
-  const r=DATA[key][idx];if(!r)return;
-  quickEstadoById(key,r._id,newEstado);
-}
-async function quickEstadoById(key,id,newEstado){
-  const r=DATA[key].find(x=>x._id===id);
-  if(!r){showToast('Error: registro no encontrado',true);return;}
-  const record={...r,estado:newEstado};delete record._id;
+  const record={...DATA[key][idx],estado:newEstado};const id=DATA[key][idx]?._id;
+  delete record._id;
   try{
     await db.collection(key).doc(id).set(record);
-    r.estado=newEstado;
-    logAudit('🔄 Estado',r.empresa+' → '+newEstado);
+    DATA[key][idx].estado=newEstado;
+    logAudit('🔄 Estado',DATA[key][idx].empresa+' → '+newEstado);
     const pm={pub:'page-publicaciones',coop:'page-cooperativas',ccu:'page-ccu',fest:'page-festivos'};
     if(pm[key])filterTable(key,pm[key]);
     showToast('Estado actualizado ✓');
-  }catch(e){showToast('Error',true);console.error(e);}
+  }catch(e){showToast('Error',true);}
 }
 async function deletePub(key,idx){
-  // legacy - redirige aById
-  const r=DATA[key][idx];if(!r)return;
-  deletePubById(key,r._id);
-}
-async function deletePubById(key,id){
   if(!confirm('¿Eliminar esta publicación?'))return;
-  if(!id){showToast('Error: ID no encontrado',true);return;}
-  const r=DATA[key].find(x=>x._id===id);
+  const id=DATA[key][idx]?._id;if(!id)return;
   try{
     await db.collection(key).doc(id).delete();
-    logAudit('🗑️ Eliminó',(r?r.empresa||'':'?')+' de '+key);
+    logAudit('🗑️ Eliminó',(DATA[key][idx].empresa||'')+' de '+key);
     showToast('Eliminado ✓');
-  }catch(e){showToast('Error al eliminar',true);console.error(e);}
+  }catch(e){showToast('Error al eliminar',true);}
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -1090,8 +1071,6 @@ function renderClientes(){
               <td style="font-size:13px;">${cl.celular||'—'}</td>
               <td style="color:var(--muted);font-size:12px;max-width:180px;">${cl.direccion||'—'}</td>
               <td>${cl.categoria?`<span style="background:${catColor}22;color:${catColor};font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;">${cl.categoria}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
-              <td><span style="font-size:12px;font-weight:700;color:var(--accent);">${cl.pubSemana&&cl.pubSemana>0?cl.pubSemana+' pub/sem':'—'}</span></td>
-              <td><span style="font-size:11px;color:var(--muted);">${{pub:'Generales',coop:'Cooperativas',ccu:'CCU',fest:'Festivos'}[cl.seccion]||'—'}</span></td>
               <td style="white-space:nowrap;">
                 <button class="btn btn-ghost btn-sm" onclick="openEditCliente('${cl._id}')">✏️</button>
                 <button class="btn btn-sm" style="background:rgba(240,107,107,.1);color:var(--danger);border:1px solid transparent;margin-left:4px;" onclick="deleteCliente('${cl._id}','${(cl.nombre||'').replace(/'/g,"\'")}')">🗑️</button>
@@ -1131,12 +1110,9 @@ function renderClientes(){
             <div><label class="form-label">Publicaciones / semana</label>
               <select class="form-input" id="cliente-pub-semana">
                 <option value="0">Sin plan</option>
-                <option value="1">1 por semana</option>
-                <option value="2">2 por semana</option>
-                <option value="3">3 por semana</option>
-                <option value="4">4 por semana</option>
-                <option value="5">5 por semana</option>
-                <option value="6">6 por semana</option>
+                <option value="1">1 por semana</option><option value="2">2 por semana</option>
+                <option value="3">3 por semana</option><option value="4">4 por semana</option>
+                <option value="5">5 por semana</option><option value="6">6 por semana</option>
                 <option value="7">7 por semana</option>
               </select>
             </div>
@@ -1294,43 +1270,93 @@ function renderAuditoria(){
 }
 
 
-// ── MODAL ESTADO (clic en tarjetas dashboard) ─────────────────────
+// ── FUNCIONES _id BASED ────────────────────────────────────────────
+function openEditModalById(key,id){
+  if(!id){showToast('Error: sin ID',true);return;}
+  const idx=DATA[key].findIndex(r=>r._id===id);
+  if(idx<0){showToast('Registro no encontrado',true);return;}
+  openEditModal(key,idx);
+}
+async function quickEstadoById(key,id,newEstado){
+  if(!id){showToast('Error: sin ID',true);return;}
+  const r=DATA[key].find(x=>x._id===id);
+  if(!r){showToast('Registro no encontrado',true);return;}
+  const record={...r,estado:newEstado};delete record._id;
+  try{
+    await db.collection(key).doc(id).set(record);
+    r.estado=newEstado;
+    logAudit('🔄 Estado',r.empresa+' → '+newEstado);
+    const pm={pub:'page-publicaciones',coop:'page-cooperativas',ccu:'page-ccu',fest:'page-festivos'};
+    if(pm[key])filterTable(key,pm[key]);
+    showToast('Estado actualizado ✓');
+  }catch(e){showToast('Error al actualizar',true);console.error(e);}
+}
+async function deletePubById(key,id){
+  if(!id){showToast('Error: sin ID — recargá la página',true);return;}
+  if(!confirm('¿Eliminar esta publicación?'))return;
+  const r=DATA[key].find(x=>x._id===id);
+  try{
+    await db.collection(key).doc(id).delete();
+    logAudit('🗑️ Eliminó',(r?r.empresa||'':'?')+' de '+key);
+    showToast('Eliminado ✓');
+  }catch(e){showToast('Error al eliminar: '+e.message,true);console.error('deletePubById error',key,id,e);}
+}
+
+// ── LIMPIAR PUBLICADOS ─────────────────────────────────────────────
+async function limpiarPublicados(){
+  const secciones=['pub','coop','ccu','fest'];
+  let publicados=[];
+  secciones.forEach(sec=>{
+    DATA[sec].filter(r=>r.estado==='Publicado').forEach(r=>publicados.push({...r,_sec:sec}));
+  });
+  if(!publicados.length){showToast('No hay publicaciones en estado Publicado');return;}
+  const sinId=publicados.filter(r=>!r._id);
+  if(sinId.length){showToast('⚠️ '+sinId.length+' registros sin ID, recargá la página',true);return;}
+  if(!confirm('¿Eliminar '+publicados.length+' publicaciones con estado "Publicado"?\nEsta acción no se puede deshacer.'))return;
+  showToast('Eliminando '+publicados.length+'... ⏳');
+  let ok=0,err=0;
+  for(const r of publicados){
+    try{
+      await db.collection(r._sec).doc(r._id).delete();
+      ok++;
+    }catch(e){err++;console.error('Error eliminando',r._id,r._sec,e);}
+  }
+  logAudit('🗑️ Limpió publicados',ok+' eliminados'+(err?' ('+err+' errores)':''));
+  showToast(ok+' publicaciones eliminadas ✓');
+}
+
+// ── MODAL ESTADO (clic tarjetas dashboard) ─────────────────────────
 function showEstadoModal(estado,color,icon){
-  const all=[...DATA.pub,...DATA.coop,...DATA.ccu,...DATA.fest];
-  const items=all.filter(r=>r.estado===estado);
+  // Armar lista con sección de cada ítem usando _id para identificar
+  const secList=[];
+  ['pub','coop','ccu','fest'].forEach(sec=>{
+    DATA[sec].filter(r=>r.estado===estado).forEach(r=>secList.push({...r,_sec:sec}));
+  });
   const secLabel={pub:'Publicaciones',coop:'Cooperativas',ccu:'CCU Central',fest:'Días Festivos'};
   const secColor={pub:'#7c6af7',coop:'#4fd1c5',ccu:'#f7916a',fest:'#f472b6'};
-  const encColor={kevin:'#f7916a',jose:'#7c6af7',elias:'#4fd1c5',rocio:'#f472b6'};
-  const secKey=r=>{
-    if(DATA.pub.includes(r))return 'pub';
-    if(DATA.coop.includes(r))return 'coop';
-    if(DATA.ccu.includes(r))return 'ccu';
-    return 'fest';
-  };
-  // Ensure modal exists
   if(!document.getElementById('modal-estado')){
     const div=document.createElement('div');
     div.className='modal-overlay';div.id='modal-estado';
     div.onclick=e=>{if(e.target.id==='modal-estado')closeModal('modal-estado');};
-    div.innerHTML=`<div class="modal" style="width:620px;"><div class="modal-header"><h3 id="modal-estado-title"></h3><button class="modal-close" onclick="closeModal('modal-estado')">✕</button></div><div id="modal-estado-body" style="max-height:65vh;overflow-y:auto;"></div></div>`;
+    div.innerHTML='<div class="modal" style="width:620px;"><div class="modal-header"><h3 id="modal-estado-title"></h3><button class="modal-close" onclick="closeModal(\'modal-estado\')">✕</button></div><div id="modal-estado-body" style="max-height:65vh;overflow-y:auto;"></div></div>';
     document.body.appendChild(div);
   }
   document.getElementById('modal-estado-title').innerHTML=
-    icon+' '+estado+'<span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:8px;">'+items.length+' publicaciones</span>';
-  if(!items.length){
+    icon+' '+estado+'<span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:8px;">'+secList.length+' publicaciones</span>';
+  if(!secList.length){
     document.getElementById('modal-estado-body').innerHTML='<div class="empty" style="padding:48px 20px;"><div class="empty-icon">🎉</div><p>No hay publicaciones con este estado</p></div>';
     openModal('modal-estado');return;
   }
-  const sorted=[...items].sort((a,b)=>(a.empresa||'').localeCompare(b.empresa||'','es'));
+  const sorted=[...secList].sort((a,b)=>(a.empresa||'').localeCompare(b.empresa||'','es'));
   let rows='';
   sorted.forEach(r=>{
-    const sk=secKey(r);const sc=secColor[sk]||'#aaa';
+    const sc=secColor[r._sec]||'#aaa';
     rows+='<tr style="border-bottom:1px solid rgba(255,255,255,.04);">'+
       '<td style="padding:10px 16px;font-size:13px;font-weight:600;border-left:3px solid '+color+';">'+(r.empresa||'—')+'</td>'+
       '<td style="padding:10px 16px;">'+(r.dia?'<span class="dia-chip">'+r.dia+'</span>':'<span style="color:var(--muted);font-size:12px;">—</span>')+'</td>'+
       '<td style="padding:10px 16px;font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(r.contenido||'—')+'</td>'+
       '<td style="padding:10px 16px;">'+(r.encargado?'<span class="resp-chip resp-'+r.encargado.toLowerCase()+'">'+r.encargado+'</span>':'<span style="color:var(--muted);font-size:12px;">—</span>')+'</td>'+
-      '<td style="padding:10px 16px;"><span style="background:'+sc+'22;color:'+sc+';font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;">'+secLabel[sk]+'</span></td>'+
+      '<td style="padding:10px 16px;"><span style="background:'+sc+'22;color:'+sc+';font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;">'+secLabel[r._sec]+'</span></td>'+
       '</tr>';
   });
   document.getElementById('modal-estado-body').innerHTML=
@@ -1341,41 +1367,12 @@ function showEstadoModal(estado,color,icon){
   openModal('modal-estado');
 }
 
-// ── LIMPIAR PUBLICADOS ─────────────────────────────────────────────
-async function limpiarPublicados(){
-  // Buscar publicados en cada colección por separado usando _id
-  const secciones=['pub','coop','ccu','fest'];
-  let publicados=[];
-  secciones.forEach(sec=>{
-    DATA[sec].filter(r=>r.estado==='Publicado').forEach(r=>publicados.push({...r,_sec:sec}));
-  });
-  if(!publicados.length){showToast('No hay publicaciones en estado Publicado',false);return;}
-  if(!confirm('¿Eliminar '+publicados.length+' publicaciones con estado "Publicado"?\nEsta acción no se puede deshacer.'))return;
-  showToast('Eliminando '+publicados.length+'... ⏳');
-  let ok=0,err=0;
-  for(const r of publicados){
-    try{
-      if(r._id&&r._sec){
-        await db.collection(r._sec).doc(r._id).delete();
-        ok++;
-      }
-    }catch(e){err++;console.error('Error eliminando',r._id,r._sec,e);}
-  }
-  logAudit('🗑️ Limpió publicados',ok+' eliminados'+(err?' ('+err+' errores)':''));
-  showToast(ok+' publicaciones eliminadas ✓');
-}
-
 // ── GENERAR SEMANA ─────────────────────────────────────────────────
 function openGenerarSemana(key){
   const clientesDeSec=CLIENTES_DATA.filter(cl=>cl.seccion===key&&cl.pubSemana&&cl.pubSemana>0);
-  if(!clientesDeSec.length){
-    showToast('No hay clientes con plan asignado para esta sección',true);return;
-  }
-  // Verificar cuáles ya tienen publicaciones existentes
+  if(!clientesDeSec.length){showToast('No hay clientes con plan asignado para esta sección',true);return;}
   const existentes=DATA[key]||[];
-  let rows='';
-  let totalCrear=0;
-  let totalSaltear=0;
+  let rows='',totalCrear=0,totalSaltear=0;
   clientesDeSec.forEach(cl=>{
     const cant=parseInt(cl.pubSemana)||0;
     const yaExisten=existentes.filter(r=>r.empresa===cl.nombre).length;
@@ -1390,51 +1387,38 @@ function openGenerarSemana(key){
     rows+='<tr style="border-bottom:1px solid rgba(255,255,255,.04);">'+
       '<td style="padding:9px 14px;font-size:13px;font-weight:600;">'+cl.nombre+'</td>'+
       '<td style="padding:9px 14px;text-align:center;font-size:12px;color:var(--muted);">'+cant+' plan</td>'+
-      '<td style="padding:9px 14px;">'+estado+'</td>'+
-      '</tr>';
+      '<td style="padding:9px 14px;">'+estado+'</td></tr>';
   });
-  // Ensure modal exists
   if(!document.getElementById('modal-generar')){
     const div=document.createElement('div');
     div.className='modal-overlay';div.id='modal-generar';
     div.onclick=e=>{if(e.target.id==='modal-generar')closeModal('modal-generar');};
-    div.innerHTML=`<div class="modal" style="width:560px;"><div class="modal-header"><h3 id="modal-generar-title"></h3><button class="modal-close" onclick="closeModal('modal-generar')">✕</button></div><div class="modal-body" id="modal-generar-body"></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-generar')">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-generar">Generar</button></div></div>`;
+    div.innerHTML='<div class="modal" style="width:560px;"><div class="modal-header"><h3 id="modal-generar-title"></h3><button class="modal-close" onclick="closeModal(\'modal-generar\')">✕</button></div><div class="modal-body" id="modal-generar-body"></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal(\'modal-generar\')">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-generar">Generar</button></div></div>';
     document.body.appendChild(div);
   }
   const secNames={pub:'Publicaciones Generales',coop:'Cooperativas',ccu:'CCU Central',fest:'Días Festivos'};
   document.getElementById('modal-generar-title').textContent='📅 Generar semana — '+secNames[key];
   const btnGenerar=document.getElementById('btn-confirmar-generar');
+  const thStyle='padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);';
+  const tableHtml='<div class="table-wrap"><table style="width:100%;border-collapse:collapse;"><thead><tr>'+
+    '<th style="'+thStyle+'">Cliente</th><th style="'+thStyle+'text-align:center;">Plan</th><th style="'+thStyle+'">Estado</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
   if(totalCrear===0){
     document.getElementById('modal-generar-body').innerHTML=
-      '<div style="padding:20px 24px;">'+
-      '<div style="background:rgba(86,197,150,.1);border:1px solid rgba(86,197,150,.25);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:13px;color:#56c596;font-weight:600;">✅ Todos los clientes ya tienen sus publicaciones para esta semana</div>'+
-      '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">'+
-      '<thead><tr>'+
-      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Cliente</th>'+
-      '<th style="padding:9px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Plan</th>'+
-      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Estado</th>'+
-      '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+      '<div style="background:rgba(86,197,150,.1);border:1px solid rgba(86,197,150,.25);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:13px;color:#56c596;font-weight:600;">✅ Todos los clientes ya tienen sus publicaciones para esta semana</div>'+tableHtml;
     btnGenerar.style.display='none';
-  } else {
+  }else{
     document.getElementById('modal-generar-body').innerHTML=
-      '<div style="padding:20px 24px;">'+
       '<div style="background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.2);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;">'+
       'Se crearán <strong style="color:var(--accent);">'+totalCrear+' publicaciones nuevas</strong>'+
-      (totalSaltear?' · <span style="color:var(--muted);">'+totalSaltear+' clientes con publicaciones existentes se completan o saltean</span>':'')+
-      '</div>'+
-      '<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">'+
-      '<thead><tr>'+
-      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Cliente</th>'+
-      '<th style="padding:9px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Plan</th>'+
-      '<th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border);">Estado</th>'+
-      '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-top:12px;">💡 Solo se crean las publicaciones que faltan según el plan. Las existentes no se tocan.</p></div>';
+      (totalSaltear?' · <span style="color:var(--muted);">'+totalSaltear+' clientes con publicaciones existentes</span>':'')+
+      '</div>'+tableHtml+
+      '<p style="font-size:11px;color:var(--muted);margin-top:12px;">💡 Solo se crean las que faltan. Las existentes no se tocan.</p>';
     btnGenerar.style.display='';
     btnGenerar.onclick=()=>generarSemana(key,clientesDeSec,existentes);
   }
   openModal('modal-generar');
 }
-
 async function generarSemana(key,clientes,existentes){
   closeModal('modal-generar');
   showToast('Generando... ⏳');
@@ -1446,14 +1430,7 @@ async function generarSemana(key,clientes,existentes){
     for(let i=0;i<faltanCrear;i++){
       try{
         const id=Date.now().toString()+Math.random().toString(36).slice(2,6)+'_'+i;
-        await db.collection(key).doc(id).set({
-          empresa:cl.nombre,
-          dia:'',
-          contenido:'',
-          estado:'Pendiente',
-          encargado:'',
-          comentario:'',
-        });
+        await db.collection(key).doc(id).set({empresa:cl.nombre,dia:'',contenido:'',estado:'Pendiente',encargado:'',comentario:''});
         ok++;
         await new Promise(r=>setTimeout(r,30));
       }catch(e){console.error(e);}
@@ -1462,7 +1439,6 @@ async function generarSemana(key,clientes,existentes){
   logAudit('📅 Generó semana',ok+' publicaciones nuevas en '+key);
   showToast(ok>0?ok+' publicaciones generadas ✓':'Todo ya estaba al día ✓');
 }
-
 
 function showToast(msg,err=false){
   const t=document.getElementById('toast');
