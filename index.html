@@ -165,6 +165,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
 /* ── Glow pulse en stat cards ── */
 @keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 rgba(124,106,247,.0)}50%{box-shadow:0 0 18px 2px rgba(124,106,247,.18)}}
 .glow-purple{animation:glowPulse 3s ease-in-out infinite;}
+
+/* ── Popup notificación ── */
+@keyframes notifSlideIn{from{opacity:0;transform:translateX(120%)}to{opacity:1;transform:translateX(0)}}
+@keyframes notifSlideOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(120%)}}
+#notif-popup{position:fixed;bottom:24px;right:24px;width:340px;max-width:92vw;background:var(--card);border:1.5px solid rgba(245,200,66,.4);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);z-index:900;overflow:hidden;display:none;}
+#notif-popup.notif-in{display:block;animation:notifSlideIn .4s cubic-bezier(.34,1.56,.64,1) both;}
+#notif-popup.notif-out{animation:notifSlideOut .3s ease forwards;}
 </style>
 
 </head>
@@ -490,6 +497,7 @@ function initApp(){
     nav.appendChild(btn);
   });
   goTo('dashboard');
+  startNotifSystem();
 }
 
 function goTo(page){
@@ -617,44 +625,7 @@ function renderDashboard(){
             ).join('');
           })()}
         </div>
-        ${(()=>{
-          const DIAS_ES={Lunes:1,Martes:2,Miercoles:3,Jueves:4,Viernes:5,sabado:6,Domingo:0};
-          const diaHoy=new Date().getDay();
-          const ahora=Date.now();
-          const TREINTA_MIN=30*60*1000;
-          const alertas=[];
-          ['pub','coop','ccu','fest'].forEach(sec=>{
-            DATA[sec].forEach(r=>{
-              if(!r.dia||r.estado==='Publicado')return;
-              if(DIAS_ES[r.dia]!==diaHoy)return;
-              if(!r.updatedAt||(ahora-r.updatedAt)>TREINTA_MIN)alertas.push({...r,_sec:sec});
-            });
-          });
-          if(!alertas.length)return '';
-          const secColor={pub:'#7c6af7',coop:'#4fd1c5',ccu:'#f7916a',fest:'#f472b6'};
-          const secLabel={pub:'General',coop:'Coop',ccu:'CCU',fest:'Festivos'};
-          const rows=alertas.map((r,i)=>{
-            const sc=secColor[r._sec]||'#aaa';
-            const ecol=ESTADO_COLORS[r.estado]||'#aaa';
-            const mins=r.updatedAt?Math.round((ahora-r.updatedAt)/60000):null;
-            const tiempoStr=!r.updatedAt?'Sin registro':(mins<60?mins+' min':Math.floor(mins/60)+'h '+mins%60+'m');
-            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;'+(i<alertas.length-1?'border-bottom:1px solid rgba(245,200,66,.12)':'')+'">'+
-              '<div style="flex:1;min-width:0;">'+
-                '<div style="font-size:12px;font-weight:700;">'+(r.empresa||'—')+'</div>'+
-                '<div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(r.contenido||'Sin contenido')+'</div>'+
-              '</div>'+
-              '<span style="background:'+ecol+'22;color:'+ecol+';font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;white-space:nowrap;">'+r.estado+'</span>'+
-              '<span style="font-size:10px;color:#f5c842;font-weight:600;white-space:nowrap;">'+tiempoStr+'</span>'+
-            '</div>';
-          }).join('');
-          return '<div style="background:rgba(245,200,66,.05);border:1.5px solid rgba(245,200,66,.3);border-radius:14px;overflow:hidden;">'+
-            '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(245,200,66,.15);">'+
-              '<span style="font-size:12px;font-weight:700;color:#f5c842;text-transform:uppercase;letter-spacing:.06em;">⚠️ Hoy sin actualizar</span>'+
-              '<span style="background:rgba(245,200,66,.25);color:#f5c842;font-size:11px;font-weight:800;padding:1px 8px;border-radius:20px;">'+alertas.length+'</span>'+
-            '</div>'+
-            rows+
-          '</div>';
-        })()}
+
       </div>
     </div>
     <div class="dash-anim-6" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;">Plan semanal por empresa</div>
@@ -1628,6 +1599,75 @@ function showEncargadoModal(enc,tipo){
   openModal('modal-encargado');
 }
 
+
+// ── SISTEMA DE NOTIFICACIONES ─────────────────────────────────────
+let _notifInterval=null;
+let _notifAutoClose=null;
+let _notifCountdown=null;
+
+function checkNotificaciones(){
+  const DIAS_ES={Lunes:1,Martes:2,Miercoles:3,Jueves:4,Viernes:5,sabado:6,Domingo:0};
+  const diaHoy=new Date().getDay();
+  const ahora=Date.now();
+  const TREINTA_MIN=30*60*1000;
+  const secColor={pub:'#7c6af7',coop:'#4fd1c5',ccu:'#f7916a',fest:'#f472b6'};
+  const secLabel={pub:'General',coop:'Coop',ccu:'CCU',fest:'Festivos'};
+  const alertas=[];
+  ['pub','coop','ccu','fest'].forEach(sec=>{
+    DATA[sec].forEach(r=>{
+      if(!r.dia||r.estado==='Publicado')return;
+      if(DIAS_ES[r.dia]!==diaHoy)return;
+      if(!r.updatedAt||(ahora-r.updatedAt)>=TREINTA_MIN)alertas.push({...r,_sec:sec});
+    });
+  });
+  if(!alertas.length)return;
+  const popup=document.getElementById('notif-popup');
+  if(!popup)return;
+  document.getElementById('notif-count').textContent=alertas.length;
+  const list=document.getElementById('notif-list');
+  list.innerHTML=alertas.map((r,i)=>{
+    const ecol=ESTADO_COLORS[r.estado]||'#aaa';
+    const sc=secColor[r._sec]||'#aaa';
+    const mins=r.updatedAt?Math.round((ahora-r.updatedAt)/60000):null;
+    const tiempoStr=!r.updatedAt?'Sin registro':(mins<60?mins+' min':Math.floor(mins/60)+'h '+mins%60+'m');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;'+(i<alertas.length-1?'border-bottom:1px solid rgba(255,255,255,.05)':'')+'">'+
+      '<div style="flex:1;min-width:0;">'+
+        '<div style="font-size:12px;font-weight:700;">'+(r.empresa||'—')+'</div>'+
+        '<div style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(r.contenido||'Sin contenido')+'</div>'+
+      '</div>'+
+      '<span style="background:'+ecol+'22;color:'+ecol+';font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;white-space:nowrap;">'+r.estado+'</span>'+
+      '<span style="font-size:10px;color:#f5c842;font-weight:600;white-space:nowrap;">'+tiempoStr+'</span>'+
+    '</div>';
+  }).join('');
+  // Mostrar popup
+  popup.classList.remove('notif-out');
+  popup.classList.add('notif-in');
+  // Countdown 10s
+  let secs=10;
+  const timerEl=document.getElementById('notif-timer');
+  if(timerEl)timerEl.textContent=secs;
+  if(_notifCountdown)clearInterval(_notifCountdown);
+  _notifCountdown=setInterval(()=>{
+    secs--;
+    if(timerEl)timerEl.textContent=secs;
+    if(secs<=0){clearInterval(_notifCountdown);closeNotifPopup();}
+  },1000);
+}
+
+function closeNotifPopup(){
+  const popup=document.getElementById('notif-popup');
+  if(!popup)return;
+  if(_notifCountdown)clearInterval(_notifCountdown);
+  popup.classList.add('notif-out');
+  setTimeout(()=>{popup.classList.remove('notif-in','notif-out');popup.style.display='none';popup.style.display='';},300);
+}
+
+function startNotifSystem(){
+  if(_notifInterval)clearInterval(_notifInterval);
+  // Primer check a los 30 min, luego cada 30 min
+  _notifInterval=setInterval(checkNotificaciones,30*60*1000);
+}
+
 function showToast(msg,err=false){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=err?'var(--danger)':'var(--success)';
@@ -1675,5 +1715,22 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 
+<div id="notif-popup">
+  <div style="background:rgba(245,200,66,.08);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(245,200,66,.2);">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:16px;">⚠️</span>
+      <span style="font-size:13px;font-weight:700;color:#f5c842;">Publicaciones sin actualizar</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="notif-count" style="background:rgba(245,200,66,.25);color:#f5c842;font-size:11px;font-weight:800;padding:1px 8px;border-radius:20px;"></span>
+      <button onclick="closeNotifPopup()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 4px;">✕</button>
+    </div>
+  </div>
+  <div id="notif-list" style="max-height:240px;overflow-y:auto;"></div>
+  <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:11px;color:var(--muted);">Se cierra en <span id="notif-timer">10</span>s</span>
+    <button onclick="closeNotifPopup()" style="background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.3);color:#f5c842;font-size:12px;font-weight:700;padding:5px 14px;border-radius:8px;cursor:pointer;">Entendido</button>
+  </div>
+</div>
 </body>
 </html>
